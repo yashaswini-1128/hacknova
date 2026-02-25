@@ -6,13 +6,20 @@ import matplotlib.pyplot as plt
 from video_utils import extract_frames, analyze_frames
 from audio_utils import extract_audio, analyze_audio, extract_transcript
 
-st.title("🛡 AI Deepfake & Synthetic Media Shield")
+st.set_page_config(
+    page_title="AI Deepfake Shield",
+    page_icon="🛡",
+    layout="wide"
+)
 
-uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mov", "avi"])
+st.title("🛡 AI Deepfake & Synthetic Media Shield")
+st.markdown("### Multi-Modal Synthetic Media Risk Intelligence System")
+
+uploaded_file = st.file_uploader("Upload a Video File", type=["mp4", "mov", "avi"])
 
 if uploaded_file is not None:
 
-    # Create uploads folder
+    # Save uploaded video
     if not os.path.exists("uploads"):
         os.makedirs("uploads")
 
@@ -24,78 +31,59 @@ if uploaded_file is not None:
     st.success("Video uploaded successfully!")
     st.video(file_path)
 
-    # Extract frames
-    st.write("DEBUG — Frame paths created?")
-    st.write(frame_paths)
-    try:
-      num_frames, frame_paths = extract_frames(file_path)
-    except Exception as e:
-      st.error(f"Frame extraction failed: {e}")
-    frame_paths = []
-    num_frames = 0
-    st.success(f"Extracted {num_frames} frames successfully!")
+    # ---------------- VIDEO ANALYSIS ----------------
+    st.subheader("🎥 Video Analysis")
 
-    # Analyze frames
+    num_frames, frame_paths = extract_frames(file_path)
+
+    if num_frames == 0:
+        st.error("No frames extracted from video.")
+        st.stop()
+
     video_score, frame_scores = analyze_frames(frame_paths)
 
-    st.subheader("🔍 Deepfake Risk Analysis")
-    st.write(f"Video Deepfake Probability: {round(video_score * 100, 2)}%")
-
-    if video_score < 0.3:
-        st.success("Risk Level: Low")
-    elif video_score < 0.6:
-        st.warning("Risk Level: Moderate")
-    else:
-        st.error("Risk Level: High")
-
-    # Graph
-    st.subheader("📊 Frame-Level Deepfake Probability")
-
-    frame_numbers = np.arange(len(frame_scores))
-
-    fig, ax = plt.subplots()
-    ax.plot(frame_numbers, frame_scores)
-    ax.set_xlabel("Frame Number")
-    ax.set_ylabel("Fake Probability")
-    ax.set_title("Deepfake Probability Across Frames")
-
-    st.pyplot(fig)
-
-    # Suspicious frames
-    st.subheader("🚨 Highly Suspicious Frames")
-
-    threshold = 0.7
-    suspicious_found = False
-
-    for i, score in enumerate(frame_scores[:5]):  # limit to 5 frames
-        if score > threshold:
-            st.image(frame_paths[i], caption=f"Frame {i} - Score: {round(score,2)}")
-            suspicious_found = True
-
-    if not suspicious_found:
-        st.write("No highly suspicious frames detected.")
-
-        # ---------------- AUDIO ANALYSIS ----------------
-    st.subheader("🎧 Audio Deepfake Analysis")
+    # ---------------- AUDIO ANALYSIS ----------------
+    st.subheader("🎧 Audio Analysis")
 
     audio_path = extract_audio(file_path)
     audio_score = analyze_audio(audio_path)
 
-    st.write(f"Audio Deepfake Probability: {round(audio_score * 100, 2)}%")
+    # ---------------- CONTEXT ANALYSIS ----------------
+    st.subheader("📝 Context Analysis")
 
-    if audio_score < 0.3:
-        st.success("Audio Risk: Low")
-    elif audio_score < 0.6:
-        st.warning("Audio Risk: Moderate")
-    else:
-        st.error("Audio Risk: High")
+    transcript = extract_transcript(audio_path)
 
-    # ---------------- FINAL MULTI-MODAL SCORE ----------------
-    st.subheader("🧠 Final Multi-Modal Risk Intelligence")
+    high_risk_keywords = [
+        "transfer money", "urgent", "bank account",
+        "otp", "election", "emergency", "confidential"
+    ]
 
-    final_score = (0.5 * video_score) + (0.3 * audio_score) + (0.2 *context_risk)
+    context_risk = 0
+    for keyword in high_risk_keywords:
+        if keyword in transcript:
+            context_risk += 0.1
 
-    st.write(f"Final Deepfake Risk Score: {round(final_score * 100, 2)}%")
+    context_risk = min(context_risk, 0.3)
+
+    # ---------------- FINAL RISK FUSION ----------------
+    final_score = (0.5 * video_score) + (0.3 * audio_score) + (0.2 * context_risk)
+
+    # ---------------- DISPLAY RESULTS ----------------
+    st.subheader("📊 Risk Dashboard")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Video Risk", f"{round(video_score*100,2)}%")
+
+    with col2:
+        st.metric("Audio Risk", f"{round(audio_score*100,2)}%")
+
+    with col3:
+        st.metric("Context Risk", f"{round(context_risk*100,2)}%")
+
+    with col4:
+        st.metric("Final Risk", f"{round(final_score*100,2)}%")
 
     if final_score < 0.3:
         st.success("Overall Risk: Low")
@@ -104,39 +92,31 @@ if uploaded_file is not None:
     else:
         st.error("Overall Risk: High")
 
-       # ---------------- CONTEXT ANALYSIS ----------------
-    st.subheader("📝 Context Risk Analysis")
+    # ---------------- FRAME GRAPH ----------------
+    st.subheader("📈 Frame-Level Deepfake Probability")
 
-    transcript = extract_transcript(audio_path)
+    fig, ax = plt.subplots()
+    ax.plot(np.arange(len(frame_scores)), frame_scores)
+    ax.set_xlabel("Frame Number")
+    ax.set_ylabel("Fake Probability")
 
+    st.pyplot(fig)
+
+    # ---------------- SUSPICIOUS FRAMES ----------------
+    st.subheader("🚨 Top Suspicious Frames")
+
+    threshold = 0.7
+    shown = 0
+
+    for i, score in enumerate(frame_scores):
+        if score > threshold and shown < 5:
+            st.image(frame_paths[i], caption=f"Frame {i} | Score: {round(score,2)}")
+            shown += 1
+
+    if shown == 0:
+        st.info("No highly suspicious frames detected.")
+
+    # ---------------- TRANSCRIPT DISPLAY ----------------
     if transcript:
-        st.write("Transcript:")
+        st.subheader("🗣 Extracted Speech")
         st.write(transcript)
-    else:
-        st.write("No clear speech detected.")
-
-    # Define high-risk keywords
-    high_risk_keywords = [
-        "transfer money",
-        "urgent",
-        "bank account",
-        "otp",
-        "election",
-        "emergency",
-        "confidential"
-    ]
-
-    context_risk = 0
-
-    for keyword in high_risk_keywords:
-        if keyword in transcript:
-            context_risk += 0.1
-
-    context_risk = min(context_risk, 0.3)
-
-    st.write(f"Context Risk Score: {round(context_risk * 100, 2)}%")
-
-    @st.cache_resource
-    def load_video_model():
-      from video_utils import train_dummy_video_model
-      return train_dummy_video_model()
